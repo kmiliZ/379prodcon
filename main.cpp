@@ -1,64 +1,67 @@
-// DO NOT MODIFY THIS FILE
+/*
+TODO:
+1. deal with consumer logging data
+2. log data properly
+3. log summary
+*/
 
-// Trans simulates processing a transaction
-// It does not simulate this by using sleep -- that would free up the CPU.
-// Thus, Trans does a silly computation to use up CPU cycles. Note that the
-// computation has to produce some result. If it doesn't, then a smart
-// compiler will notice this and delete (optimize) the code!
+#include "header.h"
+queue<int> taskQueue;
+int maxQueSize;
 
-// The loop's computation (to waste time) is used to modify TransSave.
-// TransSave is added to the wait time in Sleep -- a few billionths of a
-// second. By doing this, something "real" comes from the computation, and
-// the compiler is fooled.
+FILE *fp;
+bool producerCompleted;
 
-int TransSave = 0;
+// mutext
+pthread_mutex_t tqMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t wrtMutex = PTHREAD_MUTEX_INITIALIZER;
 
-void Trans(int n)
+// conditions
+pthread_cond_t tqNotEmptyCond = PTHREAD_COND_INITIALIZER;
+pthread_cond_t tqNotFullCond = PTHREAD_COND_INITIALIZER;
+
+/**
+ * @param id the id of the thread
+ * @param evenType
+ * Ask/Receive/Work/Sleep/Complete
+ * @param Q number of transactions received and waiting to be consumed
+ * @param n The number received from work T or S
+ **/
+void logEvent(int id, char eventType, int Q, int n)
 {
-    long i, j;
+    pthread_mutex_lock(&wrtMutex);
 
-    // Use CPU cycles
-    j = 0;
-    for (i = 0; i < n * 100000; i++)
+    cout << "event logging" << endl;
+
+    switch (eventType)
     {
-        j += i ^ (i + 1) % (i + n);
+    case 'W':
+        fprintf(fp, "Work");
+        break;
+    case 'A':
+        fprintf(fp, "Ask");
+        break;
+    case 'R':
+        fprintf(fp, "Receive");
+        break;
+    case 'S':
+        fprintf(fp, "Sleep");
+        break;
+    case 'C':
+        fprintf(fp, "Completed");
+        break;
     }
-    TransSave += j;
-    TransSave &= 0xff;
+
+    pthread_mutex_unlock(&wrtMutex);
 }
 
-// Sleep simulates pauses between transactions
-// Parameter given expresses wait time in hundreds of a nanosecond.
-
-#include <stdio.h>
-#include <time.h>
-
-void Sleep(int n)
+int getTaskQueSize()
 {
-    struct timespec sleep;
-
-    // Make sure pass a valid nanosecond time to nanosleep
-    if (n <= 0 || n >= 100)
-    {
-        n = 1;
-    }
-
-    // Sleep for less than one second
-    sleep.tv_sec = 0;
-    sleep.tv_nsec = n * 10000000 + TransSave;
-    if (nanosleep(&sleep, NULL) < 0)
-    {
-        perror("NanoSleep");
-    }
+    pthread_mutex_lock(&tqMutex);
+    int size = taskQueue.size();
+    pthread_mutex_unlock(&tqMutex);
+    return size;
 }
-#include <iostream>
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string>
-
-using namespace std;
 
 int main(int argc, char *argv[])
 {
@@ -69,30 +72,75 @@ int main(int argc, char *argv[])
     }
     int nthreads = atoi(argv[1]);
     int id = 0;
-    // to see if the output files's id given or not
-    if (argc > 3)
+    char outPutFile[20];
+
+    // set up output file name
+    if (argc >= 3)
     {
         id = atoi(argv[2]);
+        sprintf(outPutFile, "prodcon.%d.log", id);
     }
+    else
+    {
+        strcpy(outPutFile, "prodcon.log");
+    }
+
+    // initialized the flag to be false
+    producerCompleted = false;
+    cout << "now opening a file" << endl;
+    fp = fopen(outPutFile, "w");
+
+    // create consumers
+    for (int i = 0; i <= nthreads; i++)
+    {
+        new Consumer(i++);
+    }
+
+    maxQueSize = nthreads * 2;
 
     // reads input
     char command_type;
     int command_n;
+    int queSize;
 
     while (scanf("%c%u", &command_type, &command_n) > 0)
     {
+        cout << "while looping" << endl;
         if (command_type == 'T')
         {
-            // should lock here
-            // check if queue is full
-            /* check if queue is empty--well, maybe not here. consumer need to check if
-            the work queue is empty or not, cosumers will have to wait until work gets added to the queue by the producer
-            */
+            // log parent received word
+            cout << "Task T" << endl;
+            logEvent(0, 'W', getTaskQueSize(), command_n);
+            cout << "eventLogging returnes" << endl;
+
+            // start modifying the queue
+            pthread_mutex_lock(&tqMutex);
+            cout << "adding to queue" << endl;
+
+            if (taskQueue.size() >= maxQueSize)
+            {
+                pthread_cond_wait(&tqNotFullCond, &tqMutex);
+            }
+            taskQueue.push(command_n);
+
+            // check if the queue were just empty
+            if (taskQueue.size() == 1)
+            {
+                pthread_cond_broadcast(&tqNotEmptyCond);
+            }
+
+            pthread_mutex_unlock(&tqMutex);
         }
         else if (command_type == 'S')
         {
+            // need to log this as well;
+            logEvent(0, 'S', NULL, command_n);
             Sleep(command_n);
         }
     }
+    cout << "while loop ended" << endl;
+
+    // producer no longer add new tasks
+    producerCompleted = true;
     return 0;
 }
