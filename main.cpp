@@ -31,23 +31,26 @@ void logEvent(int id, char eventType, int Q, int n)
 {
     pthread_mutex_lock(&wrtMutex);
 
-    cout << "event logging" << endl;
-
     switch (eventType)
     {
     case 'W':
+        cout << "work  id:" << id << "  n:" << n << endl;
         fprintf(fp, "Work");
         break;
     case 'A':
+        cout << "Ask  id:" << id << endl;
         fprintf(fp, "Ask");
         break;
     case 'R':
+        cout << "Receive  id:" << id << "  n:" << n << endl;
         fprintf(fp, "Receive");
         break;
     case 'S':
+        cout << "Sleep  id:" << id << endl;
         fprintf(fp, "Sleep");
         break;
     case 'C':
+        cout << "Completed  id:" << id << "  n:" << n << endl;
         fprintf(fp, "Completed");
         break;
     }
@@ -71,6 +74,7 @@ int main(int argc, char *argv[])
         return 0;
     }
     int nthreads = atoi(argv[1]);
+    Consumer *consumers[nthreads];
     int id = 0;
     char outPutFile[20];
 
@@ -87,13 +91,12 @@ int main(int argc, char *argv[])
 
     // initialized the flag to be false
     producerCompleted = false;
-    cout << "now opening a file" << endl;
     fp = fopen(outPutFile, "w");
 
     // create consumers
     for (int i = 0; i <= nthreads; i++)
     {
-        new Consumer(i++);
+        consumers[i] = new Consumer(i + 1);
     }
 
     maxQueSize = nthreads * 2;
@@ -105,29 +108,29 @@ int main(int argc, char *argv[])
 
     while (scanf("%c%u", &command_type, &command_n) > 0)
     {
-        cout << "while looping" << endl;
+        cout << "Producer while looping" << endl;
         if (command_type == 'T')
         {
             // log parent received word
-            cout << "Task T" << endl;
             logEvent(0, 'W', getTaskQueSize(), command_n);
-            cout << "eventLogging returnes" << endl;
 
             // start modifying the queue
             pthread_mutex_lock(&tqMutex);
             cout << "adding to queue" << endl;
 
-            if (taskQueue.size() >= maxQueSize)
+            while (taskQueue.size() >= maxQueSize)
             {
                 pthread_cond_wait(&tqNotFullCond, &tqMutex);
             }
             taskQueue.push(command_n);
+            cout << "new task added to que" << endl;
 
             // check if the queue were just empty
             if (taskQueue.size() == 1)
             {
-                pthread_cond_broadcast(&tqNotEmptyCond);
+                pthread_cond_signal(&tqNotEmptyCond);
             }
+            cout << "pthread_cond_broadcast(&tqNotEmptyCond) done" << endl;
 
             pthread_mutex_unlock(&tqMutex);
         }
@@ -141,6 +144,23 @@ int main(int argc, char *argv[])
     cout << "while loop ended" << endl;
 
     // producer no longer add new tasks
+    pthread_mutex_lock(&tqMutex);
     producerCompleted = true;
+    pthread_cond_broadcast(&tqNotEmptyCond);
+    pthread_mutex_unlock(&tqMutex);
+
+    // wait for all consumers to terminate
+    for (int i = 0; i <= nthreads; i++)
+    {
+        pthread_join(consumers[i]->getPthreadId(), nullptr);
+    }
+
+    // TODO:implete print summery, use it here
+    fclose(fp);
+    for (int i = 0; i <= nthreads; i++)
+    {
+        delete consumers[i];
+    }
+
     return 0;
 }

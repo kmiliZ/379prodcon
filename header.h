@@ -42,11 +42,13 @@ public:
     */
     Consumer(int id);
     int id;
+    pthread_t getPthreadId();
 
 private:
     /*
     consume the task it received after ask
     */
+    pthread_t pthreadId;
     static void *consume(void *vargp);
 };
 #endif

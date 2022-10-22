@@ -5,7 +5,7 @@ CFLAGS= -O -Wall -pthread
 prodcon: $(OBJ)
 	$(CC) $(CFLAGS) -o prodcon $(OBJ)
 main.o: 
-	$(CC) $(CFLAGS)-c main.cpp
+	$(CC) $(CFLAGS) -c main.cpp
 command.o:
 	$(CC) $(CFLAGS) -c command.cpp
 consumer.o:
