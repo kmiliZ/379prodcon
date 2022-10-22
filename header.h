@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <string>
 #include <queue>
+#include <cstring>
 using namespace std;
 
 // the queue to hold all transactions from producer
