@@ -9,7 +9,13 @@
 #include <string>
 #include <queue>
 #include <cstring>
+#include <chrono>
 using namespace std;
+using namespace chrono;
+typedef system_clock Clock;
+
+#define OUT_PUT_TEMPLATE_Q "%.3f ID=%2d Q=%2d %-10s %5s\n"
+#define OUT_PUT_TEMPLATE "%.3f ID=%2d %4s %-10s %5s\n"
 
 // the queue to hold all transactions from producer
 extern queue<int> taskQueue;
@@ -26,11 +32,14 @@ extern pthread_mutex_t wrtMutex;
 extern pthread_cond_t tqNotEmptyCond;
 extern pthread_cond_t tqNotFullCond;
 
+// summary counts
+extern int workCount, askCount, completeCount, sleepCount, receiveCount;
+
 // Functions provided from class
 void Trans(int n);
 void Sleep(int n);
 
-void logEvent(int id, char eventType, int Q, int n);
+void logEvent(int id, char eventType, int queSize, int n);
 int getTaskQueSize();
 
 class Consumer
@@ -42,14 +51,18 @@ public:
     function
     */
     Consumer(int id);
-    int id;
     pthread_t getPthreadId();
+    int getConsumerId();
+    int getTaskCount();
 
 private:
     /*
     consume the task it received after ask
     */
     pthread_t pthreadId;
+    int id;
+    int taskCompletedCount;
     static void *consume(void *vargp);
+    void increamentTaskCount();
 };
 #endif

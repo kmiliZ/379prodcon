@@ -20,43 +20,10 @@ pthread_mutex_t wrtMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t tqNotEmptyCond = PTHREAD_COND_INITIALIZER;
 pthread_cond_t tqNotFullCond = PTHREAD_COND_INITIALIZER;
 
-/**
- * @param id the id of the thread
- * @param evenType
- * Ask/Receive/Work/Sleep/Complete
- * @param Q number of transactions received and waiting to be consumed
- * @param n The number received from work T or S
- **/
-void logEvent(int id, char eventType, int Q, int n)
-{
-    pthread_mutex_lock(&wrtMutex);
+int workCount, askCount, completeCount, sleepCount, receiveCount;
 
-    switch (eventType)
-    {
-    case 'W':
-        cout << "work  id:" << id << "  n:" << n << endl;
-        fprintf(fp, "Work");
-        break;
-    case 'A':
-        cout << "Ask  id:" << id << endl;
-        fprintf(fp, "Ask");
-        break;
-    case 'R':
-        cout << "Receive  id:" << id << "  n:" << n << endl;
-        fprintf(fp, "Receive");
-        break;
-    case 'S':
-        cout << "Sleep  id:" << id << endl;
-        fprintf(fp, "Sleep");
-        break;
-    case 'C':
-        cout << "Completed  id:" << id << "  n:" << n << endl;
-        fprintf(fp, "Completed");
-        break;
-    }
-
-    pthread_mutex_unlock(&wrtMutex);
-}
+// Starting time
+Clock::time_point startTime;
 
 int getTaskQueSize()
 {
@@ -66,8 +33,87 @@ int getTaskQueSize()
     return size;
 }
 
+/**
+ * @return return time passed in seconds
+ * since the process started
+ */
+float getTimeDuration()
+{
+    Clock::time_point now = Clock::now();
+    duration<double> duration = now - startTime;
+    return duration.count();
+}
+/**
+ * @param id the id of the thread
+ * @param evenType
+ * Ask/Receive/Work/Sleep/Complete/End
+ * @param n The number received from work T or S
+ **/
+void logEvent(int id, char eventType, int queSize, int n)
+{
+    pthread_mutex_lock(&wrtMutex);
+    float duration = getTimeDuration();
+    char nStr[] = "    ";
+    char qStr[] = "    ";
+    char eventStr[] = "          ";
+    if (n != NULL)
+    {
+        sprintf(nStr, "%4d", n);
+    }
+    switch (eventType)
+    {
+    case 'W':
+        workCount++;
+        sprintf(eventStr, "%s", "Work");
+        sprintf(qStr, "Q=%2d", queSize);
+        break;
+    case 'A':
+        askCount++;
+        sprintf(eventStr, "%s", "Ask");
+        break;
+    case 'R':
+        receiveCount++;
+        sprintf(eventStr, "%s", "Receive");
+        sprintf(qStr, "Q=%2d", queSize);
+        break;
+    case 'S':
+        sleepCount++;
+        sprintf(eventStr, "%s", "Sleep");
+        break;
+    case 'C':
+        completeCount++;
+        sprintf(eventStr, "%s", "Completed");
+        break;
+    case 'E':
+        sprintf(eventStr, "%s", "End");
+        break;
+    }
+
+    fprintf(fp, OUT_PUT_TEMPLATE, duration, id, qStr, eventStr, nStr);
+
+    pthread_mutex_unlock(&wrtMutex);
+}
+
+void logSummery(int nthreads, Consumer *consumers[])
+{
+    fprintf(fp, "Summary:\n");
+    fprintf(fp, "   Work        %2d\n", workCount);
+    fprintf(fp, "   Ask         %2d\n", askCount);
+    fprintf(fp, "   Receive     %2d\n", receiveCount);
+    fprintf(fp, "   Completed   %2d\n", completeCount);
+    fprintf(fp, "   Sleep       %2d\n", sleepCount);
+    for (int i = 0; i < nthreads; i++)
+    {
+        fprintf(fp, "   Thread %2d   %2d\n", consumers[i]->getConsumerId(), consumers[i]->getTaskCount());
+    }
+    float totalDuration = getTimeDuration();
+    fprintf(fp, "Transactions per second: %.2f", (float)workCount / totalDuration);
+}
+
 int main(int argc, char *argv[])
 {
+    startTime = Clock::now();
+
     if (argc < 2)
     {
         cerr << "missing arguements for nthreads" << endl;
@@ -77,6 +123,11 @@ int main(int argc, char *argv[])
     Consumer *consumers[nthreads];
     int id = 0;
     char outPutFile[20];
+    workCount = 0;
+    askCount = 0;
+    completeCount = 0;
+    sleepCount = 0;
+    receiveCount = 0;
 
     // set up output file name
     if (argc >= 3)
@@ -94,8 +145,9 @@ int main(int argc, char *argv[])
     fp = fopen(outPutFile, "w");
 
     // create consumers
-    for (int i = 0; i <= nthreads; i++)
+    for (int i = 0; i < nthreads; i++)
     {
+        cout << "adding customer " << i << endl;
         consumers[i] = new Consumer(i + 1);
     }
 
@@ -108,29 +160,27 @@ int main(int argc, char *argv[])
 
     while (scanf("%c%u", &command_type, &command_n) > 0)
     {
-        cout << "Producer while looping" << endl;
+        cout << "scan input..." << endl;
         if (command_type == 'T')
         {
-            // log parent received word
-            logEvent(0, 'W', getTaskQueSize(), command_n);
-
             // start modifying the queue
             pthread_mutex_lock(&tqMutex);
-            cout << "adding to queue" << endl;
-
             while (taskQueue.size() >= maxQueSize)
             {
+                cout << "whileling" << endl;
+
                 pthread_cond_wait(&tqNotFullCond, &tqMutex);
             }
             taskQueue.push(command_n);
-            cout << "new task added to que" << endl;
 
             // check if the queue were just empty
             if (taskQueue.size() == 1)
             {
                 pthread_cond_signal(&tqNotEmptyCond);
             }
-            cout << "pthread_cond_broadcast(&tqNotEmptyCond) done" << endl;
+
+            // log parent received word
+            logEvent(0, 'W', taskQueue.size(), command_n);
 
             pthread_mutex_unlock(&tqMutex);
         }
@@ -140,27 +190,38 @@ int main(int argc, char *argv[])
             logEvent(0, 'S', NULL, command_n);
             Sleep(command_n);
         }
+        cout << "added an entry to the  queue" << endl;
     }
-    cout << "while loop ended" << endl;
+    cout << "main while loop ended" << endl;
+    logEvent(0, 'E', NULL, command_n);
+    cout << "logged end event" << endl;
 
     // producer no longer add new tasks
+
     pthread_mutex_lock(&tqMutex);
     producerCompleted = true;
     pthread_cond_broadcast(&tqNotEmptyCond);
     pthread_mutex_unlock(&tqMutex);
+    cout << "broadcasted" << endl;
 
     // wait for all consumers to terminate
-    for (int i = 0; i <= nthreads; i++)
+    for (int i = 0; i < nthreads; i++)
     {
         pthread_join(consumers[i]->getPthreadId(), nullptr);
     }
+    cout << "all consumers terminated" << endl;
 
     // TODO:implete print summery, use it here
+    logSummery(nthreads, consumers);
+    cout << "logged all summerys" << endl;
+
     fclose(fp);
-    for (int i = 0; i <= nthreads; i++)
+    for (int i = 0; i < nthreads; i++)
     {
+        cout << "deleted customer " << i << endl;
         delete consumers[i];
     }
+    cout << "deleted all customers " << endl;
 
     return 0;
 }

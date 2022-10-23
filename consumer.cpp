@@ -4,16 +4,32 @@ Consumer::Consumer(int id)
 {
     cout << "consumer with id:" << id << endl;
     this->id = id;
+    taskCompletedCount = 0;
 
     pthread_create(&pthreadId, NULL, consume, this);
 }
 
 pthread_t Consumer::getPthreadId()
 {
-    return pthreadId;
+    return this->pthreadId;
 }
+
+int Consumer::getConsumerId()
+{
+    return this->id;
+}
+
+void Consumer::increamentTaskCount()
+{
+    this->taskCompletedCount++;
+}
+
+int Consumer::getTaskCount()
+{
+    return this->taskCompletedCount;
+}
+
 // ask -> receive -> work -> complete -> ask ->.....loop until exit
-// so TODO: there should be a while loop here;
 void *Consumer::consume(void *args)
 {
     Consumer *consumer = (Consumer *)args;
@@ -21,18 +37,22 @@ void *Consumer::consume(void *args)
 
     while (!producerCompleted || getTaskQueSize() > 0)
     {
-        // cout << "consuming started" << endl;
+        cout << "whileling" << endl;
 
         logEvent(consumer->id, 'A', NULL, NULL);
+        cout << "consumer start doing a work with id:" << consumer->id << endl;
         pthread_mutex_lock(&tqMutex);
-        cout << "quesize is " << taskQueue.size() << endl;
-
+        cout << "consumer in mutext with id:" << consumer->id << endl;
         while (taskQueue.size() == 0 && !producerCompleted)
         {
-            // cout << "consumer cannot get a task: queue size zero";
             pthread_cond_wait(&tqNotEmptyCond, &tqMutex);
         }
+        if (producerCompleted && taskQueue.size() == 0)
+        {
 
+            pthread_mutex_unlock(&tqMutex);
+            break;
+        }
         n = taskQueue.back();
         taskQueue.pop();
 
@@ -41,17 +61,18 @@ void *Consumer::consume(void *args)
         {
             pthread_cond_signal(&tqNotFullCond);
         }
-        pthread_mutex_unlock(&tqMutex);
-
         // log received
-        logEvent(consumer->id, 'R', NULL, n);
+        logEvent(consumer->id, 'R', taskQueue.size(), n);
+        pthread_mutex_unlock(&tqMutex);
 
         // doing work
         Trans(n);
 
         // log completed
         logEvent(consumer->id, 'C', NULL, n);
+        consumer->increamentTaskCount();
+        cout << "consumer finished a work:" << consumer->id << endl;
     }
-
+    cout << "consuner going to terminated:" << consumer->id << endl;
     return NULL;
 }
