@@ -1,10 +1,3 @@
-/*
-TODO:
-1. deal with consumer logging data
-2. log data properly
-3. log summary
-*/
-
 #include "header.h"
 queue<int> taskQueue;
 int maxQueSize;
@@ -150,13 +143,14 @@ int main(int argc, char *argv[])
         consumers[i] = new Consumer(i + 1);
     }
 
+    // set the upper bound
     maxQueSize = nthreads * 2;
 
-    // reads input
     char command_type;
     int command_n;
     int queSize;
 
+    // reads input
     while (scanf("%c%u", &command_type, &command_n) > 0)
     {
         if (command_type == 'T')
@@ -201,7 +195,6 @@ int main(int argc, char *argv[])
         pthread_join(consumers[i]->getPthreadId(), nullptr);
     }
 
-    // TODO:implete print summery, use it here
     logSummery(nthreads, consumers);
 
     fclose(fp);

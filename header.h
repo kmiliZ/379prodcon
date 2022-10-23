@@ -46,19 +46,19 @@ class Consumer
 {
 public:
     /*
-    This is the constructor of Consumber class
-    It spawn a new process which start the consume
-    function
+    This is the constructor of consumer class
+    It spawn a new process which start the consume function
     */
     Consumer(int id);
     pthread_t getPthreadId();
     int getConsumerId();
+    /*
+    returns the total number
+    of tasks the consumer completed
+    */
     int getTaskCount();
 
 private:
-    /*
-    consume the task it received after ask
-    */
     pthread_t pthreadId;
     int id;
     int taskCompletedCount;

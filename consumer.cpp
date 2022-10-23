@@ -57,6 +57,7 @@ void *Consumer::consume(void *args)
         {
             pthread_cond_signal(&tqNotFullCond);
         }
+
         // log received
         logEvent(consumer->id, 'R', taskQueue.size(), n);
         pthread_mutex_unlock(&tqMutex);

@@ -7,5 +7,6 @@ Included files:
     header.h
 
 Acknowledgements:
-    (1)The code on timing the durations from start time is modified from Trake Vital's answer to this post:
+    (1) All codes on mutex is based on course lab slides(lab 4 and lab 5).
+    (2)The code on timing the durations from start time is modified from Trake Vital's answer to this post:
         https://stackoverflow.com/questions/57538507/how-to-convert-stdchronoduration-to-double-seconds
