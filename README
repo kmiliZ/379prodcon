@@ -1,3 +1,11 @@
-Recogniztion:
-The code on timing the durations from start time is modified from Trake Vital's answer to this post:
-https://stackoverflow.com/questions/57538507/how-to-convert-stdchronoduration-to-double-seconds
+Included files:
+    Makefile
+    README
+    main.cpp
+    command.cpp
+    consumer.cpp
+    header.h
+
+Acknowledgements:
+    (1)The code on timing the durations from start time is modified from Trake Vital's answer to this post:
+        https://stackoverflow.com/questions/57538507/how-to-convert-stdchronoduration-to-double-seconds

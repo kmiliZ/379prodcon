@@ -2,7 +2,6 @@
 
 Consumer::Consumer(int id)
 {
-    cout << "consumer with id:" << id << endl;
     this->id = id;
     taskCompletedCount = 0;
 
@@ -37,12 +36,9 @@ void *Consumer::consume(void *args)
 
     while (!producerCompleted || getTaskQueSize() > 0)
     {
-        cout << "whileling" << endl;
 
         logEvent(consumer->id, 'A', NULL, NULL);
-        cout << "consumer start doing a work with id:" << consumer->id << endl;
         pthread_mutex_lock(&tqMutex);
-        cout << "consumer in mutext with id:" << consumer->id << endl;
         while (taskQueue.size() == 0 && !producerCompleted)
         {
             pthread_cond_wait(&tqNotEmptyCond, &tqMutex);
@@ -71,8 +67,6 @@ void *Consumer::consume(void *args)
         // log completed
         logEvent(consumer->id, 'C', NULL, n);
         consumer->increamentTaskCount();
-        cout << "consumer finished a work:" << consumer->id << endl;
     }
-    cout << "consuner going to terminated:" << consumer->id << endl;
     return NULL;
 }

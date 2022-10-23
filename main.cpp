@@ -147,7 +147,6 @@ int main(int argc, char *argv[])
     // create consumers
     for (int i = 0; i < nthreads; i++)
     {
-        cout << "adding customer " << i << endl;
         consumers[i] = new Consumer(i + 1);
     }
 
@@ -160,15 +159,12 @@ int main(int argc, char *argv[])
 
     while (scanf("%c%u", &command_type, &command_n) > 0)
     {
-        cout << "scan input..." << endl;
         if (command_type == 'T')
         {
             // start modifying the queue
             pthread_mutex_lock(&tqMutex);
             while (taskQueue.size() >= maxQueSize)
             {
-                cout << "whileling" << endl;
-
                 pthread_cond_wait(&tqNotFullCond, &tqMutex);
             }
             taskQueue.push(command_n);
@@ -190,38 +186,29 @@ int main(int argc, char *argv[])
             logEvent(0, 'S', NULL, command_n);
             Sleep(command_n);
         }
-        cout << "added an entry to the  queue" << endl;
     }
-    cout << "main while loop ended" << endl;
     logEvent(0, 'E', NULL, command_n);
-    cout << "logged end event" << endl;
 
     // producer no longer add new tasks
-
-    pthread_mutex_lock(&tqMutex);
     producerCompleted = true;
+    pthread_mutex_lock(&tqMutex);
     pthread_cond_broadcast(&tqNotEmptyCond);
     pthread_mutex_unlock(&tqMutex);
-    cout << "broadcasted" << endl;
 
     // wait for all consumers to terminate
     for (int i = 0; i < nthreads; i++)
     {
         pthread_join(consumers[i]->getPthreadId(), nullptr);
     }
-    cout << "all consumers terminated" << endl;
 
     // TODO:implete print summery, use it here
     logSummery(nthreads, consumers);
-    cout << "logged all summerys" << endl;
 
     fclose(fp);
     for (int i = 0; i < nthreads; i++)
     {
-        cout << "deleted customer " << i << endl;
         delete consumers[i];
     }
-    cout << "deleted all customers " << endl;
 
     return 0;
 }
